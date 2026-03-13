@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wholopedia, a free encyclopedia
+</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0b0e; --accent: #818cf8; --text: #f1f5f9; --border: rgba(255,255,255,0.08);
+            --card-bg: #141417; --footer-bg: #ccff00; --footer-text: #064e3b;
+            --rainbow: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            --header-glass: rgba(15, 15, 18, 0.85);
+        }
+        [data-theme="light"] {
+            --bg: #f8fafc; --accent: #4f46e5; --text: #0f172a; --border: rgba(0,0,0,0.08);
+            --card-bg: #ffffff; --footer-bg: #0f172a; --footer-text: #ccff00;
+            --header-glass: rgba(248, 250, 252, 0.85);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+        /* HEADER & NAVIGATION */
+        header { position: sticky; top: 0; z-index: 1000; background: var(--header-glass); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 12px 0; }
+        .nav-inner { max-width: 1400px; margin: 0 auto; width: 92%; display: flex; align-items: center; justify-content: space-between; }
+        .nav-logo { font-weight: 900; font-size: 1.3rem; cursor: pointer; background: var(--rainbow); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+
+        .huge-logo { font-size: clamp(2.5rem, 10vw, 6rem); font-weight: 900; text-align: center; margin: 60px 0 40px; background: var(--rainbow); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -2px; cursor: pointer; }
+
+        /* SEARCH */
+        .search-wrap { position: relative; max-width: 750px; margin: 0 auto 60px; width: 92%; }
+        .search-bar { width: 100%; padding: 22px 30px; border-radius: 50px; background: var(--card-bg); border: 1px solid var(--border); color: var(--text); font-size: 1.1rem; outline: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        #suggestions { position: absolute; top: 110%; width: 100%; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border); display: none; z-index: 2000; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .sug-item { padding: 16px 25px; cursor: pointer; border-bottom: 1px solid var(--border); transition: 0.2s; }
+        .sug-item:hover { background: var(--accent); color: #fff; }
+
+        /* FEATURED SECTION (50/50 Split) */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 4%; width: 100%; flex: 1; }
+        .featured-card { 
+            background: var(--card-bg); border-radius: 35px; border: 1px solid var(--border); 
+            display: flex; flex-direction: row; overflow: hidden; cursor: pointer; margin-bottom: 60px;
+            min-height: 400px;
+        }
+        .featured-img-wrap { width: 50%; height: auto; position: relative; background: #000; }
+        .featured-img { width: 100%; height: 100%; object-fit: cover; }
+        .featured-info { width: 50%; padding: 50px; display: flex; flex-direction: column; justify-content: center; }
+
+        /* HISTORY GRID */
+        .history-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 80px; }
+        .history-item { background: var(--card-bg); padding: 30px; border-radius: 24px; border: 1px solid var(--border); cursor: pointer; }
+
+        /* FOOTER */
+        footer { background: var(--footer-bg); color: var(--footer-text); padding: 80px 4% 40px; border-top: 12px solid var(--footer-text); margin-top: auto; }
+        .footer-logo-horiz { font-size: 2.8rem; font-weight: 900; letter-spacing: -2px; margin-bottom: 25px; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 60px; max-width: 1300px; margin: 0 auto; }
+        .about-us-content { line-height: 1.7; font-weight: 500; opacity: 0.95; }
+        .thought-box { border-left: 4px solid var(--footer-text); padding-left: 20px; margin-top: 25px; font-style: italic; }
+
+        /* RESPONSIVE FIXES */
+        @media (max-width: 850px) {
+            .featured-card { flex-direction: column; }
+            .featured-img-wrap { width: 100%; height: 300px; }
+            .featured-info { width: 100%; padding: 40px; }
+        }
+
+        .btn-nav { padding: 10px 18px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+        #article-loader { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .loader-spin { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body data-theme="light">
+
+    <div id="article-loader">
+        <div class="loader-spin"></div>
+        <div id="loader-msg" style="margin-top:20px; font-weight:900; color:var(--accent); text-transform:uppercase; font-size:0.7rem;">Opening Knowledge Gates...</div>
+    </div>
+
+    <div id="vault-sidebar" style="position:fixed; right:-350px; top:0; width:320px; height:100%; background:var(--card-bg); z-index:2000; padding:40px 30px; border-left:1px solid var(--border); transition:0.4s; box-shadow: -15px 0 40px rgba(0,0,0,0.4);">
+        <h2 style="font-weight:900; margin-bottom:30px; font-size:2rem;">Records</h2>
+        <div id="vault-list"></div>
+        <button onclick="clearVault()" style="width:100%; margin-top:30px; padding:12px; border-radius:10px; border:1px solid #ff4d4d; color:#ff4d4d; background:transparent; font-weight:700; cursor:pointer;">Clear Vault</button>
+    </div>
+    <div id="overlay" onclick="toggleVault()" style="position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1999; display:none; backdrop-filter: blur(5px);"></div>
+
+    <header>
+        <div class="nav-inner">
+            <div class="nav-logo" onclick="navigate('/')">wholopedia</div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-nav" style="background:rgba(129, 140, 248, 0.1); color:var(--accent);" onclick="toggleVault()">VAULT</button>
+                <button class="btn-nav" style="background:var(--accent); color:white;" onclick="toggleTheme()">DARK/LIGHT</button>
+            </div>
+        </div>
+    </header>
+
+    <main id="homeUI">
+        <h1 class="huge-logo" onclick="navigate('/')">Wholopedia</h1>
+        <div class="container">
+            <div class="search-wrap">
+                <input type="text" id="searchInput" class="search-bar" placeholder="Search anything you are curious of..." autocomplete="off">
+                <div id="suggestions"></div>
+            </div>
+            
+            <p style="font-weight:900; text-transform:uppercase; font-size:0.75rem; letter-spacing:4px; color:var(--accent); margin-bottom:25px;">Today's Featured Archive</p>
+            <div id="featuredArea"></div>
+
+            <p style="font-weight:900; text-transform:uppercase; font-size:0.75rem; letter-spacing:4px; color:var(--accent); margin-bottom:25px; margin-top:80px;">This Day in History</p>
+            <div id="historyGrid" class="history-grid"></div>
+        </div>
+    </main>
+
+    <main id="articleView" class="container" style="display:none; padding:40px 0;">
+        <div style="display:flex; gap:12px; margin-bottom:40px;">
+            <button class="btn-nav" style="background:var(--accent); color:white;" onclick="saveToVault()">☆ Add to Vault</button>
+            <button class="btn-nav" style="background:var(--card-bg); color:var(--text); border:1px solid var(--border);" onclick="exportToPDF()">Download Dossier</button>
+        </div>
+        <div id="pdfContent">
+            <h1 id="articleTitle" style="font-size:clamp(2rem, 8vw, 3.8rem); font-weight:900; margin-bottom:30px; color:var(--accent); line-height:1.1; letter-spacing:-2px;"></h1>
+            <div id="articleBody" style="line-height:1.9; font-size:1.15rem; opacity:0.95;"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-grid">
+            <div style="grid-column: span 1;">
+                <div class="footer-logo-horiz">wholopedia</div>
+                <div class="about-us-content">
+                    Wholopedia is a decentralized gateway to human intelligence. Built as a high-speed, minimalist terminal, it transforms the massive sea of global information into a cozy, digestible reading experience. Our philosophy is rooted in the belief that knowledge should be seamless, beautiful, and distraction-free. 
+                    <br><br>
+                    Whether you are a researcher, a student, or a lifelong learner, Wholopedia serves as the final terminal for your curiosity—the "asphalt" that bridges the gap between searching and truly knowing.
+                </div>
+                <div class="thought-box">
+                    "Curiosity is the engine; Wholopedia is the road. We don't just provide data; we provide the landscape for discovery."
+                </div>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:40px;">
+                <div>
+                    <h4 style="text-transform:uppercase; font-size:0.8rem; letter-spacing:3px; margin-bottom:20px; opacity:0.7;">Philosophy</h4>
+                    <p style="font-size:0.95rem; opacity:0.9; line-height:1.6;">Driven by the vision of Imtiaz and Faiyaz Shaikh, Wholopedia represents the intersection of aesthetic design and raw data. We prioritize the reader's focus, offering a secure "Vault" to protect the intelligence you gather on your journey.</p>
+                </div>
+                <div>
+                    <h4 style="text-transform:uppercase; font-size:0.8rem; letter-spacing:3px; margin-bottom:20px; opacity:0.7;">Terminal Map</h4>
+                    <li onclick="navigate('/')" style="list-style:none; font-weight:700; margin-bottom:12px; cursor:pointer;">Intelligence Home</li>
+                    <li onclick="toggleVault()" style="list-style:none; font-weight:700; margin-bottom:12px; cursor:pointer;">Access Private Vault</li>
+                    <li onclick="window.scrollTo({top:0, behavior:'smooth'})" style="list-style:none; font-weight:700; cursor:pointer;">Reset View (Top)</li>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:80px; font-weight:900; opacity:0.4; font-size:0.75rem; letter-spacing:4px;">
+            &copy; 2026 WHOLOPEDIA | DIRECTED BY IMTIAZ & FAIYAZ SHAIKH
+        </div>
+    </footer>
+
+    <script>
+        let currentTitle = "";
+        let vault = JSON.parse(localStorage.getItem('wholo_vault') || '[]');
+        let debounce;
+
+        function navigate(path) {
+            window.history.pushState({}, '', path);
+            handleRouting();
+        }
+
+        async function handleRouting() {
+            const path = window.location.pathname;
+            if (path.startsWith('/wiki/')) {
+                const name = decodeURIComponent(path.split('/wiki/')[1].replace(/_/g, ' '));
+                loadArticle(name);
+            } else {
+                document.getElementById('homeUI').style.display = 'block';
+                document.getElementById('articleView').style.display = 'none';
+                document.getElementById('suggestions').style.display = 'none';
+                document.title = "Wholopedia, a free encyclopedia";
+                window.scrollTo(0,0);
+            }
+        }
+
+        async function loadArticle(name) {
+            document.getElementById('loader-msg').innerText = `Accessing ${name}...`;
+            document.getElementById('article-loader').style.display = 'flex';
+            try {
+                const r = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(name)}&format=json&origin=*&prop=text|displaytitle`);
+                const d = await r.json();
+                currentTitle = d.parse.title;
+                const brandingTitle = `Everything about ${currentTitle} by wholopedia`;
+                document.getElementById('articleTitle').innerText = brandingTitle;
+                document.title = brandingTitle;
+                document.getElementById('articleBody').innerHTML = d.parse.text["*"].replace(/src="\/\//g, 'src="https://');
+                document.getElementById('homeUI').style.display = 'none';
+                document.getElementById('articleView').style.display = 'block';
+                window.scrollTo(0,0);
+            } catch(e) { navigate('/'); }
+            setTimeout(() => document.getElementById('article-loader').style.display = 'none', 400);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            const sugBox = document.getElementById('suggestions');
+            clearTimeout(debounce);
+            if (val.length < 2) { sugBox.style.display = 'none'; return; }
+            debounce = setTimeout(async () => {
+                const r = await fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(val)}&limit=6&origin=*&format=json`);
+                const d = await r.json();
+                if (d[1]?.length) {
+                    sugBox.innerHTML = d[1].map(t => `<div class="sug-item" onclick="navigate('/wiki/${t.replace(/ /g,'_')}')"><b>${t}</b></div>`).join('');
+                    sugBox.style.display = 'block';
+                }
+            }, 250);
+        });
+
+        function toggleVault() {
+            const s = document.getElementById('vault-sidebar');
+            const o = document.getElementById('overlay');
+            const isOpen = s.style.right === '0px';
+            s.style.right = isOpen ? '-350px' : '0px';
+            o.style.display = isOpen ? 'none' : 'block';
+            renderVault();
+        }
+
+        function saveToVault() {
+            if(!vault.includes(currentTitle)) {
+                vault.push(currentTitle);
+                localStorage.setItem('wholo_vault', JSON.stringify(vault));
+                alert("Dossier stored in private vault.");
+            }
+        }
+
+        function clearVault() {
+            if(confirm("Confirm purge of all records?")) { vault = []; localStorage.setItem('wholo_vault', '[]'); renderVault(); }
+        }
+
+        function renderVault() {
+            const list = document.getElementById('vault-list');
+            list.innerHTML = vault.length ? vault.map(i => `<div class="sug-item" style="border-radius:10px; margin-bottom:8px;" onclick="navigate('/wiki/${i.replace(/ /g,'_')}')">${i}</div>`).join('') : '<p style="opacity:0.5; text-align:center; font-size:0.8rem;">No records saved.</p>';
+        }
+
+        async function loadHome() {
+            const n = new Date();
+            const m = (n.getMonth()+1).toString().padStart(2,'0');
+            const d = n.getDate().toString().padStart(2,'0');
+            try {
+                const fr = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/featured/2026/${m}/${d}`);
+                const fd = await fr.json();
+                if(fd.tfa) {
+                    document.getElementById('featuredArea').innerHTML = `
+                    <div class="featured-card" onclick="navigate('/wiki/${fd.tfa.titles.canonical}')">
+                        <div class="featured-img-wrap">
+                            <img src="${fd.tfa.thumbnail ? fd.tfa.thumbnail.source : ''}" class="featured-img">
+                        </div>
+                        <div class="featured-info">
+                            <h3 style="font-size:2.4rem; color:var(--accent); margin-bottom:20px; font-weight:900; line-height:1;">${fd.tfa.displaytitle}</h3>
+                            <p style="opacity:0.85; line-height:1.8; font-size:1.1rem;">${fd.tfa.extract}</p>
+                        </div>
+                    </div>`;
+                }
+                const hr = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${m}/${d}`);
+                const hd = await hr.json();
+                document.getElementById('historyGrid').innerHTML = hd.events.slice(0, 6).map(e => `
+                    <div class="history-item" onclick="navigate('/wiki/${e.pages[0].titles.canonical}')">
+                        <span style="font-weight:900; color:var(--accent); font-size:1.6rem;">${e.year}</span>
+                        <p style="margin-top:10px; font-weight:500; line-height:1.6;">${e.text}</p>
+                    </div>`).join('');
+            } catch(e) {}
+        }
+
+        function toggleTheme() {
+            const b = document.body;
+            b.setAttribute('data-theme', b.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        function exportToPDF() {
+            html2pdf().from(document.getElementById('pdfContent')).save(`${currentTitle}_wholopedia.pdf`);
+        }
+
+        window.onpopstate = handleRouting;
+        window.onload = () => { handleRouting(); loadHome(); };
+    </script>
+</body>
+</html>
